@@ -1,0 +1,27 @@
+package com.sinoeruiz.spring.security.postgresql.SpringBootSecurityApplication.payload.response;
+
+import java.time.LocalDateTime;
+
+public class CommentResponse {
+    private String content;
+    private LocalDateTime createdAt;
+    private String username;
+
+    public CommentResponse(String content, LocalDateTime createdAt, String username) {
+        this.content = content;
+        this.createdAt = createdAt;
+        this.username = username;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+}
