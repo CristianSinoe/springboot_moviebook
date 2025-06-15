@@ -70,11 +70,9 @@ public class WebSecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/test/**").permitAll()
-                .requestMatchers("/api/tweets/**").permitAll()
-                .requestMatchers("/uploads/**").permitAll() 
-                // .requestMatchers("/api/comments/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/tweets/**").permitAll() // Solo GET público
+                .requestMatchers("/uploads/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/comments/tweet/**").permitAll()
-
                 .anyRequest().authenticated()
             );
 
@@ -84,7 +82,7 @@ public class WebSecurityConfig {
         return http.build();
     }
 
-    // 📁 Configura carpeta /uploads para servir imágenes
+    // 📁 Configura carpeta /uploads para servir imágenes estáticas
     @Bean
     public WebMvcConfigurer webMvcConfigurer() {
         return new WebMvcConfigurer() {

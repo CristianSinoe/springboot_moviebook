@@ -1,31 +1,24 @@
 package com.sinoeruiz.spring.security.postgresql.SpringBootSecurityApplication.controllers;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.util.UUID;
-
-// import jakarta.validation.Valid;
+import java.io.IOException;
+import java.nio.file.*;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
-
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.sinoeruiz.spring.security.postgresql.SpringBootSecurityApplication.models.EReaction;
 import com.sinoeruiz.spring.security.postgresql.SpringBootSecurityApplication.models.Tweet;
 import com.sinoeruiz.spring.security.postgresql.SpringBootSecurityApplication.models.User;
+import com.sinoeruiz.spring.security.postgresql.SpringBootSecurityApplication.payload.response.CommentResponse;
+import com.sinoeruiz.spring.security.postgresql.SpringBootSecurityApplication.payload.response.TweetResponse;
 import com.sinoeruiz.spring.security.postgresql.SpringBootSecurityApplication.repository.TweetRepository;
 import com.sinoeruiz.spring.security.postgresql.SpringBootSecurityApplication.repository.UserRepository;
-
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-
-import java.util.Optional;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -38,53 +31,131 @@ public class TweetController {
     @Autowired
     private UserRepository userRepository;
 
-    @GetMapping("/all")
-    public Page<Tweet> getTweet(Pageable pageable) {
-        return tweetRepository.findAll(pageable);
-    }
+    private final Path uploadDir = Paths.get("uploads");
+
+@GetMapping("/all")
+public ResponseEntity<List<TweetResponse>> getAllTweets() {
+    List<Tweet> tweets = tweetRepository.findAllWithComments();
+
+    List<TweetResponse> response = tweets.stream().map(tweet -> {
+        List<CommentResponse> commentDTOs = tweet.getComments().stream().map(comment ->
+            new CommentResponse(
+                comment.getContent(),
+                comment.getCreatedAt(),
+                comment.getUser().getUsername()
+            )
+        ).toList();
+
+        // Paso 1: contar las reacciones actuales
+Map<String, Long> rawCount = tweet.getReactions().stream()
+    .filter(r -> r.getReaction() != null && r.getReaction().getName() != null)
+    .collect(Collectors.groupingBy(
+        r -> r.getReaction().getName().name(),
+        Collectors.counting()
+    ));
+
+// Paso 2: inicializar con todos los tipos posibles
+Map<String, Integer> reactionCount = new LinkedHashMap<>();
+for (EReaction er : EReaction.values()) {
+    long count = rawCount.getOrDefault(er.name(), 0L);
+    reactionCount.put(er.name(), (int) count);
+}
+
+// Paso 3: ordenar por valor descendente
+reactionCount = reactionCount.entrySet().stream()
+    .sorted(Map.Entry.<String, Integer>comparingByValue(Comparator.reverseOrder()))
+    .collect(Collectors.toMap(
+        Map.Entry::getKey,
+        Map.Entry::getValue,
+        (e1, e2) -> e1,
+        LinkedHashMap::new
+    ));
+
+        return new TweetResponse(
+            tweet.getTweet(),
+            tweet.getImageUrl(),
+            tweet.getPostedBy().getUsername(),
+            commentDTOs,
+            reactionCount
+        );
+    }).toList();
+
+    return ResponseEntity.ok(response);
+}
+
 
     @PostMapping("/create")
-    @PreAuthorize("hasRole('USER')")
-    public ResponseEntity<?> createTweet(
-            @RequestParam("tweet") String tweetText,
-            @RequestParam(value = "image", required = false) MultipartFile imageFile,
-            Authentication authentication) {
-        try {
-            String username = authentication.getName();
-            Optional<User> userOpt = userRepository.findByUsername(username);
-            if (userOpt.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
-            }
+@PreAuthorize("hasRole('USER')")
+public ResponseEntity<?> createTweet(
+        @RequestParam("tweet") String tweetText,
+        @RequestParam(value = "image", required = false) MultipartFile imageFile,
+        Authentication authentication) {
 
-            User user = userOpt.get();
-
-            Tweet tweet = new Tweet(tweetText);
-            tweet.setPostedBy(user);
-
-            // Subida de imagen si existe
-            if (imageFile != null && !imageFile.isEmpty()) {
-                String originalFilename = imageFile.getOriginalFilename();
-                String fileExtension = originalFilename.substring(originalFilename.lastIndexOf(".") + 1).toLowerCase();
-
-                if (!fileExtension.equals("jpg") && !fileExtension.equals("jpeg") && !fileExtension.equals("png")) {
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Solo se permiten imágenes JPG o PNG");
-                }
-
-                String filename = UUID.randomUUID() + "_" + originalFilename;
-                Path uploadPath = Paths.get("uploads");
-                Files.createDirectories(uploadPath);
-
-                Path imagePath = uploadPath.resolve(filename);
-                Files.copy(imageFile.getInputStream(), imagePath, StandardCopyOption.REPLACE_EXISTING);
-
-                tweet.setImageUrl("/uploads/" + filename);
-            }
-
-            Tweet saved = tweetRepository.save(tweet);
-            return ResponseEntity.ok(saved);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error al crear tweet: " + e.getMessage());
+    try {
+        Optional<User> userOpt = userRepository.findByUsername(authentication.getName());
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Usuario no encontrado");
         }
+
+        User user = userOpt.get();
+        Tweet tweet = new Tweet(tweetText);
+        tweet.setPostedBy(user);
+
+        if (imageFile != null && !imageFile.isEmpty()) {
+            String url = saveImage(imageFile);
+            if (url == null) {
+                return ResponseEntity.badRequest().body("Formato de imagen no permitido. Solo JPG y PNG.");
+            }
+            tweet.setImageUrl(url);
+        }
+
+        Tweet saved = tweetRepository.save(tweet);
+
+        // Solo devolver lo necesario
+        TweetResponse response = new TweetResponse(
+    saved.getTweet(),
+    saved.getImageUrl(),
+    user.getUsername(),
+    null, // comentarios
+    Map.of() // reacciones vacías por ahora
+);
+
+        return ResponseEntity.ok(response);
+    } catch (Exception e) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error: " + e.getMessage());
     }
 }
+
+    @PostMapping("/upload")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<?> uploadImage(@RequestParam("image") MultipartFile file) {
+        try {
+            String url = saveImage(file);
+            if (url == null) {
+                return ResponseEntity.badRequest().body("Formato inválido. Usa .jpg, .jpeg o .png");
+            }
+            return ResponseEntity.ok(Map.of("imageUrl", url));
+        } catch (IOException e) {
+            return ResponseEntity.status(500).body("Error al subir imagen: " + e.getMessage());
+        }
+    }
+
+    // 🔐 Método utilitario privado
+    private String saveImage(MultipartFile file) throws IOException {
+        String originalName = file.getOriginalFilename();
+        if (originalName == null) return null;
+
+        String extension = originalName.substring(originalName.lastIndexOf('.') + 1).toLowerCase();
+        if (!List.of("jpg", "jpeg", "png").contains(extension)) {
+            return null;
+        }
+
+        Files.createDirectories(uploadDir);
+        String filename = UUID.randomUUID() + "_" + originalName;
+        Path destination = uploadDir.resolve(filename);
+        Files.copy(file.getInputStream(), destination, StandardCopyOption.REPLACE_EXISTING);
+
+        return "/uploads/" + filename;
+    }
+}
+

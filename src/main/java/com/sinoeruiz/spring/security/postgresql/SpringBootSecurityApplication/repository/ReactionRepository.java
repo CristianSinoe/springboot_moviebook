@@ -10,5 +10,10 @@ import java.util.Optional;
 
 @Repository
 public interface ReactionRepository extends JpaRepository<Reaction, Long> {
-    Optional<Reaction> findByDescription(EReaction description);
+    
+    // Buscar reacción por su nombre enum
+    Optional<Reaction> findByName(EReaction name);
+
+    // Verificar si ya existe una reacción por su nombre enum
+    boolean existsByName(EReaction name);
 }

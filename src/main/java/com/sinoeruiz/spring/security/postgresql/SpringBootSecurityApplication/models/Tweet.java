@@ -30,8 +30,11 @@ public class Tweet {
     @JsonIgnoreProperties("tweet")
     private List<Comment> comments;
 
-    public Tweet() {
-    }
+    @OneToMany(mappedBy = "tweet", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnoreProperties("tweet")
+    private List<TweetReaction> reactions;
+
+    public Tweet() {}
 
     public Tweet(String tweet) {
         this.tweet = tweet;
@@ -76,5 +79,13 @@ public class Tweet {
 
     public void setComments(List<Comment> comments) {
         this.comments = comments;
+    }
+
+    public List<TweetReaction> getReactions() {
+        return reactions;
+    }
+
+    public void setReactions(List<TweetReaction> reactions) {
+        this.reactions = reactions;
     }
 }

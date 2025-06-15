@@ -11,24 +11,24 @@ public class Reaction {
     private Long id;
 
     @Enumerated(EnumType.STRING)
-    @Column(length = 20)
-    private EReaction description;
+    @Column(length = 20, unique = true, nullable = false)
+    private EReaction name;  // antes era "description"
 
     public Reaction() {}
 
-    public Reaction(EReaction description) {
-        this.description = description;
+    public Reaction(EReaction name) {
+        this.name = name;
     }
 
     public Long getId() {
         return id;
     }
 
-    public EReaction getDescription() {
-        return description;
+    public EReaction getName() {  // este método lo usas en TweetController
+        return name;
     }
 
-    public void setDescription(EReaction description) {
-        this.description = description;
+    public void setName(EReaction name) {
+        this.name = name;
     }
 }
