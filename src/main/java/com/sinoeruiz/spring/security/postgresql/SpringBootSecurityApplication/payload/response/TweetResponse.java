@@ -4,20 +4,31 @@ import java.util.List;
 import java.util.Map;
 
 public class TweetResponse {
+    private Long id; // 🟢 NUEVO CAMPO
     private String tweet;
     private String imageUrl;
-    private String username;
+    private UserMinResponse postedBy;
     private List<CommentResponse> comments;
     private Map<String, Integer> reactions;
 
-    public TweetResponse(String tweet, String imageUrl, String username,
+    // 🔧 Constructor actualizado
+    public TweetResponse(Long id, String tweet, String imageUrl, UserMinResponse postedBy,
                          List<CommentResponse> comments,
                          Map<String, Integer> reactions) {
+        this.id = id;
         this.tweet = tweet;
         this.imageUrl = imageUrl;
-        this.username = username;
+        this.postedBy = postedBy;
         this.comments = comments;
         this.reactions = reactions;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
     }
 
     public String getTweet() {
@@ -36,12 +47,12 @@ public class TweetResponse {
         this.imageUrl = imageUrl;
     }
 
-    public String getUsername() {
-        return username;
+    public UserMinResponse getPostedBy() {
+        return postedBy;
     }
 
-    public void setUsername(String username) {
-        this.username = username;
+    public void setPostedBy(UserMinResponse postedBy) {
+        this.postedBy = postedBy;
     }
 
     public List<CommentResponse> getComments() {

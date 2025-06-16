@@ -17,8 +17,10 @@ import com.sinoeruiz.spring.security.postgresql.SpringBootSecurityApplication.mo
 import com.sinoeruiz.spring.security.postgresql.SpringBootSecurityApplication.models.User;
 import com.sinoeruiz.spring.security.postgresql.SpringBootSecurityApplication.payload.response.CommentResponse;
 import com.sinoeruiz.spring.security.postgresql.SpringBootSecurityApplication.payload.response.TweetResponse;
+import com.sinoeruiz.spring.security.postgresql.SpringBootSecurityApplication.payload.response.UserMinResponse;
 import com.sinoeruiz.spring.security.postgresql.SpringBootSecurityApplication.repository.TweetRepository;
 import com.sinoeruiz.spring.security.postgresql.SpringBootSecurityApplication.repository.UserRepository;
+import com.sinoeruiz.spring.security.postgresql.SpringBootSecurityApplication.payload.response.UserMinResponse;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -37,7 +39,10 @@ public class TweetController {
 public ResponseEntity<List<TweetResponse>> getAllTweets() {
     List<Tweet> tweets = tweetRepository.findAllWithComments();
 
-    List<TweetResponse> response = tweets.stream().map(tweet -> {
+    List<TweetResponse> response = new ArrayList<>();
+
+    for (Tweet tweet : tweets) {
+        // Convertir comentarios
         List<CommentResponse> commentDTOs = tweet.getComments().stream().map(comment ->
             new CommentResponse(
                 comment.getContent(),
@@ -46,39 +51,44 @@ public ResponseEntity<List<TweetResponse>> getAllTweets() {
             )
         ).toList();
 
-        // Paso 1: contar las reacciones actuales
-Map<String, Long> rawCount = tweet.getReactions().stream()
-    .filter(r -> r.getReaction() != null && r.getReaction().getName() != null)
-    .collect(Collectors.groupingBy(
-        r -> r.getReaction().getName().name(),
-        Collectors.counting()
-    ));
+        // Contar reacciones
+        Map<String, Long> rawCount = tweet.getReactions().stream()
+            .filter(r -> r.getReaction() != null && r.getReaction().getName() != null)
+            .collect(Collectors.groupingBy(
+                r -> r.getReaction().getName().name(),
+                Collectors.counting()
+            ));
 
-// Paso 2: inicializar con todos los tipos posibles
-Map<String, Integer> reactionCount = new LinkedHashMap<>();
-for (EReaction er : EReaction.values()) {
-    long count = rawCount.getOrDefault(er.name(), 0L);
-    reactionCount.put(er.name(), (int) count);
-}
+        Map<String, Integer> reactionCount = new LinkedHashMap<>();
+        for (EReaction er : EReaction.values()) {
+            long count = rawCount.getOrDefault(er.name(), 0L);
+            reactionCount.put(er.name(), (int) count);
+        }
 
-// Paso 3: ordenar por valor descendente
-reactionCount = reactionCount.entrySet().stream()
-    .sorted(Map.Entry.<String, Integer>comparingByValue(Comparator.reverseOrder()))
-    .collect(Collectors.toMap(
-        Map.Entry::getKey,
-        Map.Entry::getValue,
-        (e1, e2) -> e1,
-        LinkedHashMap::new
-    ));
+        reactionCount = reactionCount.entrySet().stream()
+            .sorted(Map.Entry.<String, Integer>comparingByValue(Comparator.reverseOrder()))
+            .collect(Collectors.toMap(
+                Map.Entry::getKey,
+                Map.Entry::getValue,
+                (e1, e2) -> e1,
+                LinkedHashMap::new
+            ));
 
-        return new TweetResponse(
-            tweet.getTweet(),
-            tweet.getImageUrl(),
-            tweet.getPostedBy().getUsername(),
-            commentDTOs,
-            reactionCount
-        );
-    }).toList();
+        // Construir respuesta
+        TweetResponse tweetDTO = new TweetResponse(
+    tweet.getId(), // ✅ agregar el ID
+    tweet.getTweet(),
+    tweet.getImageUrl(),
+    new UserMinResponse(
+        tweet.getPostedBy().getId(),
+        tweet.getPostedBy().getUsername()
+    ),
+    commentDTOs,
+    reactionCount
+);
+
+        response.add(tweetDTO);
+    }
 
     return ResponseEntity.ok(response);
 }
@@ -113,11 +123,12 @@ public ResponseEntity<?> createTweet(
 
         // Solo devolver lo necesario
         TweetResponse response = new TweetResponse(
+    saved.getId(), // ✅ agregar el ID del tweet guardado
     saved.getTweet(),
     saved.getImageUrl(),
-    user.getUsername(),
-    null, // comentarios
-    Map.of() // reacciones vacías por ahora
+    new UserMinResponse(user.getId(), user.getUsername()),
+    null, // comentarios vacíos por ahora
+    Map.of() // sin reacciones aún
 );
 
         return ResponseEntity.ok(response);

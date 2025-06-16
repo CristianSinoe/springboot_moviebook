@@ -54,13 +54,19 @@ public ResponseEntity<?> reactToTweet(@RequestBody TweetReactionRequest request,
 
         // Si ya tiene la misma reacción, no hacemos nada
         if (existing.getReaction().getId().equals(newReaction.getId())) {
-            return ResponseEntity.ok("Ya reaccionaste con " + newReaction.getName().name());
+            return ResponseEntity.ok(Map.of(
+    "message", "Ya reaccionaste con esta reacción",
+    "reaction", newReaction.getName().name()
+));
         }
 
         // Cambiar a una nueva reacción
         existing.setReaction(newReaction);
         tweetReactionRepository.save(existing);
-        return ResponseEntity.ok("Reacción actualizada a " + newReaction.getName().name());
+        return ResponseEntity.ok(Map.of(
+    "message", "Reacción actualizada",
+    "reaction", newReaction.getName().name()
+));
     } else {
         // No tenía reacción, se crea nueva
         TweetReaction tweetReaction = new TweetReaction();
@@ -68,7 +74,9 @@ public ResponseEntity<?> reactToTweet(@RequestBody TweetReactionRequest request,
         tweetReaction.setUser(user);
         tweetReaction.setReaction(newReaction);
         tweetReactionRepository.save(tweetReaction);
-        return ResponseEntity.ok("Reacción registrada: " + newReaction.getName().name());
+        return ResponseEntity.ok(Map.of(
+    "message", "Reacción registrada",
+    "reaction", newReaction.getName().name()));
     }
 }
 
@@ -81,16 +89,22 @@ public ResponseEntity<?> removeReaction(@PathVariable Long tweetId, Authenticati
     Optional<Tweet> tweetOpt = tweetRepository.findById(tweetId);
 
     if (userOpt.isEmpty() || tweetOpt.isEmpty()) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Datos inválidos");
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+            "error", "Datos inválidos"
+        ));
     }
 
     Optional<TweetReaction> existingReaction = tweetReactionRepository.findByTweetAndUser(tweetOpt.get(), userOpt.get());
 
     if (existingReaction.isPresent()) {
         tweetReactionRepository.delete(existingReaction.get());
-        return ResponseEntity.ok("Reacción eliminada exitosamente 💥");
+        return ResponseEntity.ok(Map.of(
+            "message", "Reacción eliminada exitosamente 💥"
+        ));
     } else {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No se encontró una reacción para eliminar ❌");
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+            "error", "No se encontró una reacción para eliminar ❌"
+        ));
     }
 }
 
