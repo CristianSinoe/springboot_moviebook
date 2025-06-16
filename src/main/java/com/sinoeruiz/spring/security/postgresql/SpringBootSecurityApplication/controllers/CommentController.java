@@ -63,5 +63,48 @@ public ResponseEntity<List<CommentResponse>> getCommentsByTweet(@PathVariable Lo
 
     return ResponseEntity.ok(response);
 }
+
+@PutMapping("/{commentId}")
+@PreAuthorize("hasRole('USER')")
+public ResponseEntity<?> updateComment(@PathVariable Long commentId,
+                                       @RequestBody String newContent,
+                                       Authentication authentication) {
+    Optional<Comment> commentOpt = commentRepository.findById(commentId);
+    if (commentOpt.isEmpty()) {
+        return ResponseEntity.notFound().build();
+    }
+
+    Comment comment = commentOpt.get();
+    String username = authentication.getName();
+
+    if (!comment.getUser().getUsername().equals(username)) {
+        return ResponseEntity.status(403).body("No tienes permiso para editar este comentario.");
+    }
+
+    comment.setContent(newContent);
+    commentRepository.save(comment);
+
+    return ResponseEntity.ok("Comentario actualizado correctamente ✏️");
+}
+@DeleteMapping("/{commentId}")
+@PreAuthorize("hasRole('USER')")
+public ResponseEntity<?> deleteComment(@PathVariable Long commentId,
+                                       Authentication authentication) {
+    Optional<Comment> commentOpt = commentRepository.findById(commentId);
+    if (commentOpt.isEmpty()) {
+        return ResponseEntity.notFound().build();
+    }
+
+    Comment comment = commentOpt.get();
+    String username = authentication.getName();
+
+    if (!comment.getUser().getUsername().equals(username)) {
+        return ResponseEntity.status(403).body("No tienes permiso para eliminar este comentario.");
+    }
+
+    commentRepository.delete(comment);
+    return ResponseEntity.ok("Comentario eliminado exitosamente 🗑️");
+}
+
 }
 

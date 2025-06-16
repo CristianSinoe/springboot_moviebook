@@ -168,5 +168,80 @@ public ResponseEntity<?> createTweet(
 
         return "/uploads/" + filename;
     }
+
+ @DeleteMapping("/{id}")
+@PreAuthorize("hasRole('USER')")
+public ResponseEntity<?> deleteTweet(@PathVariable Long id, Authentication auth) {
+    Optional<Tweet> tweetOpt = tweetRepository.findById(id);
+
+    if (tweetOpt.isEmpty()) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Tweet no encontrado"));
+    }
+
+    Tweet tweet = tweetOpt.get();
+
+    if (!tweet.getPostedBy().getUsername().equals(auth.getName())) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "No tienes permiso para eliminar este tweet"));
+    }
+
+    if (tweet.getImageUrl() != null) {
+        String filePath = tweet.getImageUrl().replace("/uploads/", "");
+        Path imagePath = Paths.get("uploads", filePath);
+        try {
+            Files.deleteIfExists(imagePath);
+        } catch (IOException e) {
+            System.out.println("No se pudo eliminar la imagen: " + e.getMessage());
+        }
+    }
+
+    tweetRepository.delete(tweet);
+    return ResponseEntity.ok(Map.of("message", "Tweet eliminado correctamente 🗑️"));
+}
+
+@PutMapping("/{id}")
+@PreAuthorize("hasRole('USER')")
+public ResponseEntity<?> updateTweet(
+        @PathVariable Long id,
+        @RequestParam("tweet") String newText,
+        @RequestParam(value = "image", required = false) MultipartFile newImage,
+        @RequestParam(value = "removeImage", required = false, defaultValue = "false") boolean removeImage,
+        Authentication authentication) {
+
+    Optional<Tweet> tweetOpt = tweetRepository.findById(id);
+    if (tweetOpt.isEmpty()) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Tweet no encontrado"));
+    }
+
+    Tweet tweet = tweetOpt.get();
+    String currentUsername = authentication.getName();
+    if (!tweet.getPostedBy().getUsername().equals(currentUsername)) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "No puedes editar este tweet"));
+    }
+
+    tweet.setTweet(newText);
+
+    // Eliminar imagen si lo solicita
+    if (removeImage) {
+        tweet.setImageUrl(null);
+    }
+
+    // Subir nueva imagen si se seleccionó
+    if (newImage != null && !newImage.isEmpty()) {
+        try {
+            String newUrl = saveImage(newImage);
+            if (newUrl == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Formato de imagen inválido. Solo JPG y PNG."));
+            }
+            tweet.setImageUrl(newUrl);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                Map.of("error", "Error al guardar imagen: " + e.getMessage())
+            );
+        }
+    }
+
+    tweetRepository.save(tweet);
+    return ResponseEntity.ok(Map.of("message", "Tweet actualizado correctamente ✨"));
+}
 }
 
