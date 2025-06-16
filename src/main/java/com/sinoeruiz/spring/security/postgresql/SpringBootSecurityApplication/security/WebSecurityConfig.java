@@ -77,6 +77,7 @@ public class WebSecurityConfig {
                 .requestMatchers("/api/test/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/tweets/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/comments/tweet/**").permitAll()
+                .requestMatchers(HttpMethod.PUT, "/api/comments/**").authenticated()
                 .requestMatchers("/uploads/**").permitAll()
                 .anyRequest().authenticated()
             );

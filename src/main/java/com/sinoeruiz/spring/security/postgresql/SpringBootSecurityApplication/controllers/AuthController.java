@@ -32,6 +32,7 @@ import com.sinoeruiz.spring.security.postgresql.SpringBootSecurityApplication.re
 import com.sinoeruiz.spring.security.postgresql.SpringBootSecurityApplication.security.jwt.JwtUtils;
 import com.sinoeruiz.spring.security.postgresql.SpringBootSecurityApplication.security.services.UserDetailsImpl;
 
+
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/auth")

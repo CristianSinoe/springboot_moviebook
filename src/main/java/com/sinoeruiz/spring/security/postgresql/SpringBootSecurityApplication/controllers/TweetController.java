@@ -20,7 +20,6 @@ import com.sinoeruiz.spring.security.postgresql.SpringBootSecurityApplication.pa
 import com.sinoeruiz.spring.security.postgresql.SpringBootSecurityApplication.payload.response.UserMinResponse;
 import com.sinoeruiz.spring.security.postgresql.SpringBootSecurityApplication.repository.TweetRepository;
 import com.sinoeruiz.spring.security.postgresql.SpringBootSecurityApplication.repository.UserRepository;
-import com.sinoeruiz.spring.security.postgresql.SpringBootSecurityApplication.payload.response.UserMinResponse;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -44,12 +43,14 @@ public ResponseEntity<List<TweetResponse>> getAllTweets() {
     for (Tweet tweet : tweets) {
         // Convertir comentarios
         List<CommentResponse> commentDTOs = tweet.getComments().stream().map(comment ->
-            new CommentResponse(
-                comment.getContent(),
-                comment.getCreatedAt(),
-                comment.getUser().getUsername()
-            )
-        ).toList();
+    new CommentResponse(
+        comment.getId(),                    // ✅ Se agrega el ID
+        comment.getContent(),
+        comment.getCreatedAt(),
+        comment.getUser().getUsername()
+    )
+).toList();
+
 
         // Contar reacciones
         Map<String, Long> rawCount = tweet.getReactions().stream()
